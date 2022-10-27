@@ -75,8 +75,15 @@ audio_part = audio_data[int(audio_offset * audio_params.framerate):]
 # Video size
 f_size = (1920, 540)
 
-# List of combined frames
-combined_frames = []
+# Write aligned video without audio
+fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+silent_video_fname = os.path.join(output_path, "combined_video_silent.avi")
+cam_vid = cv2.VideoWriter(
+    silent_video_fname,
+    fourcc,
+    float(fps),
+    f_size
+)
 
 # For each frame
 while True:
@@ -94,18 +101,8 @@ while True:
 
     # Show camera images side by side
     data = np.hstack([resized1, resized2])
-    combined_frames.append(data[:, :, :3])
+    cam_vid.write(data[:, :, :3])
 
-# Write aligned video without audio
-fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-silent_video_fname = os.path.join(output_path, "combined_video_silent.avi")
-cam_vid = cv2.VideoWriter(
-    silent_video_fname,
-    fourcc,
-    float(fps),
-    f_size
-)
-[cam_vid.write(i) for i in combined_frames]
 cam_vid.release()
 
 # Write cropped audio to file
