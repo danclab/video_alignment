@@ -33,10 +33,15 @@ with SyncDetector() as det:
 
 # Amount to trim from beginning of video 1 (seconds)
 vid1_trim=result[0]['trim']
+vid2_trim=result[1]['trim']
+
 # FPS
 fps = result[0]['orig_streams'][0]['fps']
 # Number of frames to trim from beginning of video 1
-offset = int(vid1_trim * fps)
+if np.abs(vid1_trim)>np.abs(vid2_trim):
+    offset = int(vid1_trim * fps)
+else:
+    offset=-int(vid2_trim*fps)
 
 # Open videos
 vidcap1 = cv2.VideoCapture(vid_1)
@@ -92,7 +97,11 @@ while True:
     success2, image2 = vidcap2.read()
 
     # Break if at least one video has ended
-    if not (success1 and success2):
+    if not success1 and success2:
+        image1=np.ones(image2.shape).astype(np.uint8)
+    elif not success2 and success1:
+        image2 = np.ones(image1.shape).astype(np.uint8)
+    elif not (success1 or success2):
         break
 
     # Resize each frame
