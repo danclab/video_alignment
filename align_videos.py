@@ -1,4 +1,5 @@
 import glob
+import json
 import os
 import wave
 
@@ -22,28 +23,20 @@ def quick_resize(data, scale, og_width, og_height):
     return resized
 
 
-def align_behav_videos(behav_path, behav_deriv_path):
-    n_aligned=0
-    videos=sorted(glob.glob(os.path.join(behav_path,'*.MP4')))
-    cam_years=sorted(list(set([os.path.split(x)[1].split('_')[0] for x in videos])))
-    cam_1_videos = [s for s in videos if 'behav/{}_'.format(cam_years[0]) in s]
-    cam_2_videos = [s for s in videos if 'behav/{}_'.format(cam_years[1]) in s]
-    for vid_idx,cam_1_vid in enumerate(cam_1_videos):
-        cam_2_vid=cam_2_videos[vid_idx]
-        align_two_videos(cam_1_vid, cam_2_vid, behav_deriv_path)
-        n_aligned+=1
-    return n_aligned
-
 def align_two_videos(vid_1, vid_2, output_path):
     vid_1_name = os.path.splitext(os.path.split(vid_1)[1])[0]
     vid_2_name = os.path.splitext(os.path.split(vid_2)[1])[0]
     combined_video_fname = os.path.join(output_path, "combined_{}_{}.avi".format(vid_1_name, vid_2_name))
+    combined_json_fname = os.path.join(output_path, "combined_{}_{}.json".format(vid_1_name, vid_2_name))
 
     if not os.path.exists(combined_video_fname):
         # Align videos
         file_specs = check_and_decode_filenames([vid_1, vid_2], min_num_files=2)
         with SyncDetector() as det:
             result = det.align(file_specs)
+            # Writing to sample.json
+            with open(combined_json_fname, "w") as outfile:
+                outfile.write(json.dumps(result, indent=4))
 
         # Amount to trim from beginning of video 1 (seconds)
         vid1_trim=result[0]['trim']
@@ -63,8 +56,8 @@ def align_two_videos(vid_1, vid_2, output_path):
 
 
         # Convert vid1 audio to wav
-        audio_file = os.path.join(output_path,'{}.wav'.format(os.path.splitext(vid_1)[0]))
-        cmd = ['ffmpeg', '-i', vid_1, audio_file]
+        audio_file = os.path.join(output_path,'{}.wav'.format(os.path.split(os.path.splitext(vid_1)[0])[-1]))
+        cmd = ['ffmpeg', '-y', '-i', vid_1, audio_file]
         subprocess.run(cmd)
 
         # Read audio data
@@ -115,8 +108,18 @@ def align_two_videos(vid_1, vid_2, output_path):
                 break
 
             # Resize each frame
-            resized1 = quick_resize(image1, 0.5, image1.shape[1], image1.shape[0])
-            resized2 = quick_resize(image2, 0.5, image2.shape[1], image2.shape[0])
+            if image1.shape[0]==1080:
+                resized1 = quick_resize(image1, 0.5, image1.shape[1], image1.shape[0])
+            elif image1.shape[0]==2160:
+                resized1 = quick_resize(image1, 0.25, image1.shape[1], image1.shape[0])
+            else:
+                resized1 = image1
+            if image2.shape[0]==1080:
+                resized2 = quick_resize(image2, 0.5, image2.shape[1], image2.shape[0])
+            elif image2.shape[0]==2160:
+                resized2 = quick_resize(image2, 0.25, image2.shape[1], image2.shape[0])
+            else:
+                resized2 = image2
 
             # Show camera images side by side
             data = np.hstack([resized1, resized2])
